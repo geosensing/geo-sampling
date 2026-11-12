@@ -3,7 +3,7 @@
 import os
 import time
 import zipfile
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from urllib.parse import urlencode
 
 import requests
@@ -260,7 +260,7 @@ class OSMProvider:
             # Split line into segments of specified length
             split_segments = self._split_linestring(line, segment_length)
 
-            for segment_line in split_segments:
+            for segment_line, length_m in split_segments:
                 coords = list(segment_line.coords)
                 start_point = coords[0]
                 end_point = coords[-1]
@@ -275,6 +275,7 @@ class OSMProvider:
                         start_long=start_point[0],
                         end_lat=end_point[1],
                         end_long=end_point[0],
+                        length_m=length_m,
                     )
                 )
 
@@ -302,8 +303,13 @@ class OSMProvider:
 
     def _split_linestring(
         self, line: LineString, segment_length: int
-    ) -> List[LineString]:
-        """Split a LineString into segments of specified length."""
+    ) -> List[Tuple[LineString, float]]:
+        """Split a LineString into segments of specified length.
+
+        Returns each piece with its length along the road in meters. The piece
+        itself is the straight line between its end points, which is shorter
+        than the road wherever the road bends.
+        """
         if line.length == 0:
             return []
 
@@ -341,7 +347,9 @@ class OSMProvider:
                 lat, lon = utm.to_latlon(x, y, utm_zone, hemisphere)
                 wgs84_coords.append((lon, lat))
 
-            segments.append(LineString(wgs84_coords))
+            segments.append(
+                (LineString(wgs84_coords), end_distance - current_distance)
+            )
             current_distance = end_distance
 
         return segments

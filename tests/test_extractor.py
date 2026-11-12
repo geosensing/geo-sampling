@@ -169,6 +169,9 @@ class TestRoadExtractor(unittest.TestCase):
                 "start_long",
                 "end_lat",
                 "end_long",
+                "length_m",
+                "stratum",
+                "inclusion_prob",
             }
             self.assertEqual(set(df.columns), expected_columns)
 

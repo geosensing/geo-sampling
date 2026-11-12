@@ -27,6 +27,9 @@ class TestRoadSegment(unittest.TestCase):
             "start_long": 103.8198,
             "end_lat": 1.3531,
             "end_long": 103.8208,
+            "length_m": 500.0,
+            "stratum": "primary",
+            "inclusion_prob": 0.25,
         }
 
         self.sample_segment = RoadSegment(
@@ -38,7 +41,19 @@ class TestRoadSegment(unittest.TestCase):
             start_long=103.8198,
             end_lat=1.3531,
             end_long=103.8208,
+            length_m=500.0,
+            stratum="primary",
+            inclusion_prob=0.25,
         )
+
+    def test_csv_without_design_fields_loads_with_none(self):
+        """A file from before the design fields existed, or an empty cell."""
+        row = {k: v for k, v in self.sample_data.items() if k != "inclusion_prob"}
+        row["length_m"] = ""
+        segment = RoadSegment.from_dict(row)
+        self.assertIsNone(segment.length_m)
+        self.assertIsNone(segment.inclusion_prob)
+        self.assertEqual(segment.stratum, "primary")
 
     def test_segment_creation(self):
         """Test RoadSegment can be created with all required fields."""
@@ -92,6 +107,9 @@ class TestRoadSegment(unittest.TestCase):
             "start_long",
             "end_lat",
             "end_long",
+            "length_m",
+            "stratum",
+            "inclusion_prob",
         }
         self.assertEqual(set(result.keys()), expected_keys)
 

@@ -3,10 +3,11 @@
 import csv
 import random
 from collections import defaultdict
+from dataclasses import replace
 from typing import List, Optional, Union, Dict
 from pathlib import Path
 
-from ._types import RoadSegment, RoadTypeFilter
+from ._types import SEGMENT_COLUMNS, RoadSegment, RoadTypeFilter
 from .visualization import RoadPlotter
 
 
@@ -52,7 +53,11 @@ class RoadSampler:
         if n <= 0:
             return []
 
-        return random.sample(available_segments, n)
+        inclusion_prob = n / len(available_segments)
+        return [
+            replace(segment, inclusion_prob=inclusion_prob)
+            for segment in random.sample(available_segments, n)
+        ]
 
     def stratified_sample(
         self,
@@ -127,8 +132,13 @@ class RoadSampler:
         for stratum, stratum_segments in strata.items():
             stratum_n = stratum_samples[stratum]
             if stratum_n > 0:
-                stratum_sample = random.sample(stratum_segments, stratum_n)
-                sampled_segments.extend(stratum_sample)
+                inclusion_prob = stratum_n / len(stratum_segments)
+                sampled_segments.extend(
+                    replace(
+                        segment, stratum=str(stratum), inclusion_prob=inclusion_prob
+                    )
+                    for segment in random.sample(stratum_segments, stratum_n)
+                )
 
         # Shuffle final results
         random.shuffle(sampled_segments)
@@ -155,20 +165,29 @@ class RoadSampler:
 
         available_segments = self._filter_by_road_types(road_types)
 
-        # Calculate segment lengths (assuming 500m segments)
-        # In a real implementation, you'd calculate actual lengths
-        segment_length_km = 0.5  # 500m = 0.5km
+        lengths = [segment.length_m for segment in available_segments]
+        if any(length is None for length in lengths):
+            raise ValueError(
+                "sample_by_length needs segments with length_m; extract the "
+                "roads again to record lengths"
+            )
+        mean_length_km = sum(lengths) / len(lengths) / 1000
 
-        target_n = int(target_length_km / segment_length_km)
+        # An equal-probability draw sized so its expected length is the target.
+        target_n = round(target_length_km / mean_length_km)
 
         if target_n > len(available_segments):
             print(
                 f"Warning: Target length requires {target_n} segments, "
                 f"but only {len(available_segments)} available. Using all."
             )
-            return available_segments
+            target_n = len(available_segments)
 
-        return random.sample(available_segments, target_n)
+        inclusion_prob = target_n / len(available_segments)
+        return [
+            replace(segment, inclusion_prob=inclusion_prob)
+            for segment in random.sample(available_segments, target_n)
+        ]
 
     def get_road_type_summary(
         self, road_types: RoadTypeFilter = None
@@ -196,19 +215,8 @@ class RoadSampler:
             segments: Road segments to save
             path: Output file path
         """
-        columns = [
-            "segment_id",
-            "osm_id",
-            "osm_name",
-            "osm_type",
-            "start_lat",
-            "start_long",
-            "end_lat",
-            "end_long",
-        ]
-
         with open(path, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=columns)
+            writer = csv.DictWriter(f, fieldnames=SEGMENT_COLUMNS)
             writer.writeheader()
             for segment in segments:
                 writer.writerow(segment.to_dict())

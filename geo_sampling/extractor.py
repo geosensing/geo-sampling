@@ -4,7 +4,7 @@ import csv
 from typing import List, Optional, Union
 from pathlib import Path
 
-from ._types import RoadSegment, RoadTypeFilter
+from ._types import SEGMENT_COLUMNS, RoadSegment, RoadTypeFilter
 from .data import GADMProvider, OSMProvider
 from .visualization import RoadPlotter
 
@@ -122,19 +122,8 @@ class RoadExtractor:
         """
         segments = self.get_roads(road_types, segment_length)
 
-        columns = [
-            "segment_id",
-            "osm_id",
-            "osm_name",
-            "osm_type",
-            "start_lat",
-            "start_long",
-            "end_lat",
-            "end_long",
-        ]
-
         with open(path, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=columns)
+            writer = csv.DictWriter(f, fieldnames=SEGMENT_COLUMNS)
             writer.writeheader()
             for segment in segments:
                 writer.writerow(segment.to_dict())

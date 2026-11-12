@@ -41,6 +41,7 @@ class TestRoadSampler(unittest.TestCase):
                     start_long=103.8 + i * 0.001,
                     end_lat=1.3 + (i + 1) * 0.001,
                     end_long=103.8 + (i + 1) * 0.001,
+                    length_m=500.0,
                 )
             )
 
@@ -198,6 +199,38 @@ class TestRoadSampler(unittest.TestCase):
         zero_sample = self.sampler.sample_by_length(0.0, seed=42)
         self.assertEqual(len(zero_sample), 0)
 
+    def test_sample_by_length_uses_recorded_lengths(self):
+        """Short segments need more draws to reach the same length."""
+        from dataclasses import replace
+
+        short = RoadSampler([replace(s, length_m=250.0) for s in self.test_segments])
+        self.assertEqual(len(short.sample_by_length(2.5, seed=42)), 10)
+
+        unmeasured = RoadSampler(
+            [replace(s, length_m=None) for s in self.test_segments]
+        )
+        with self.assertRaises(ValueError):
+            unmeasured.sample_by_length(2.5, seed=42)
+
+    def test_samples_record_inclusion_probabilities(self):
+        """Each sampled segment carries the probability the draw included it."""
+        simple = self.sampler.random_sample(10, seed=42)
+        self.assertTrue(all(s.inclusion_prob == 10 / 50 for s in simple))
+        self.assertTrue(all(s.stratum is None for s in simple))
+
+        primary_only = self.sampler.random_sample(4, road_types="primary", seed=42)
+        self.assertTrue(all(s.inclusion_prob == 4 / 10 for s in primary_only))
+
+        stratified = self.sampler.stratified_sample(15, seed=42)
+        for segment in stratified:
+            self.assertEqual(segment.stratum, segment.osm_type)
+            self.assertEqual(segment.inclusion_prob, 3 / 10)
+        # Weights are inverse inclusion probabilities, so they sum to the frame.
+        self.assertAlmostEqual(sum(1 / s.inclusion_prob for s in stratified), 50)
+
+        # The frame itself is left untouched.
+        self.assertTrue(all(s.inclusion_prob is None for s in self.test_segments))
+
     def test_road_type_summary(self):
         """Test road type summary generation."""
         summary = self.sampler.get_road_type_summary()
@@ -313,6 +346,9 @@ class TestRoadSampler(unittest.TestCase):
                 "start_long",
                 "end_lat",
                 "end_long",
+                "length_m",
+                "stratum",
+                "inclusion_prob",
             }
             self.assertEqual(set(result.columns), expected_columns)
 
