@@ -15,16 +15,19 @@ The output CSV contains these columns:
 | `osm_type` | Road type (primary, secondary, residential, etc.) |
 | `start_lat`, `start_long` | Starting coordinates of segment |
 | `end_lat`, `end_long` | Ending coordinates of segment |
+| `length_m` | Length of the segment along the road, in meters |
+| `stratum` | Stratum the segment was drawn from, for stratified samples |
+| `inclusion_prob` | Probability that the draw included the segment; its inverse is the design weight |
 
 ### Sample Data
 
 Here's what a few rows look like:
 
 ```csv
-segment_id,osm_id,osm_name,osm_type,start_lat,start_long,end_lat,end_long
-1,way_123,Orchard Road,primary,1.3048,103.8318,1.3052,103.8322
-2,way_124,Marina Bay Drive,trunk,1.2966,103.8558,1.2970,103.8562
-3,way_125,Residential Street,residential,1.3100,103.8400,1.3104,103.8404
+segment_id,osm_id,osm_name,osm_type,start_lat,start_long,end_lat,end_long,length_m,stratum,inclusion_prob
+1,way_123,Orchard Road,primary,1.3048,103.8318,1.3052,103.8322,500.0,,0.02
+2,way_124,Marina Bay Drive,trunk,1.2966,103.8558,1.2970,103.8562,500.0,,0.02
+3,way_125,Residential Street,residential,1.3100,103.8400,1.3104,103.8404,212.4,,0.02
 ```
 
 ### Working with Sample Data

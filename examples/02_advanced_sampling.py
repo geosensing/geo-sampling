@@ -242,12 +242,11 @@ def demonstrate_length_based_sampling(sampler, output_dir):
     print("Length-Based Sampling")
     print("=" * 50)
 
-    # Assuming each segment is ~0.5km (500m default split)
     target_lengths = [1.0, 2.5, 5.0]  # kilometers
 
     for target_km in target_lengths:
         length_sample = sampler.sample_by_length(target_km, seed=42)
-        actual_km = len(length_sample) * 0.5  # Approximate
+        actual_km = sum(segment.length_m for segment in length_sample) / 1000
 
         print(
             f"Target: {target_km}km → Sample: {len(length_sample)} segments (~{actual_km}km)"

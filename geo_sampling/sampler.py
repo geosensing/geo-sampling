@@ -2,6 +2,7 @@
 
 import csv
 import random
+import warnings
 from collections import defaultdict
 from dataclasses import replace
 from typing import List, Optional, Union, Dict
@@ -53,11 +54,7 @@ class RoadSampler:
         if n <= 0:
             return []
 
-        inclusion_prob = n / len(available_segments)
-        return [
-            replace(segment, inclusion_prob=inclusion_prob)
-            for segment in random.sample(available_segments, n)
-        ]
+        return self._draw(available_segments, n)
 
     def stratified_sample(
         self,
@@ -128,16 +125,21 @@ class RoadSampler:
                     stratum_samples[stratum] += 1
                     remaining -= 1
 
+        unsampled = sorted(str(s) for s, size in stratum_samples.items() if size == 0)
+        if unsampled:
+            warnings.warn(
+                f"No segments were allocated to strata {unsampled}. Their segments "
+                "cannot be sampled, so the design weights describe the other "
+                "strata only.",
+                stacklevel=2,
+            )
+
         # Sample from each stratum
         for stratum, stratum_segments in strata.items():
             stratum_n = stratum_samples[stratum]
             if stratum_n > 0:
-                inclusion_prob = stratum_n / len(stratum_segments)
                 sampled_segments.extend(
-                    replace(
-                        segment, stratum=str(stratum), inclusion_prob=inclusion_prob
-                    )
-                    for segment in random.sample(stratum_segments, stratum_n)
+                    self._draw(stratum_segments, stratum_n, stratum=str(stratum))
                 )
 
         # Shuffle final results
@@ -165,6 +167,9 @@ class RoadSampler:
 
         available_segments = self._filter_by_road_types(road_types)
 
+        if not available_segments:
+            return []
+
         lengths = [segment.length_m for segment in available_segments]
         if any(length is None for length in lengths):
             raise ValueError(
@@ -172,6 +177,8 @@ class RoadSampler:
                 "roads again to record lengths"
             )
         mean_length_km = sum(lengths) / len(lengths) / 1000
+        if mean_length_km <= 0:
+            raise ValueError("sample_by_length needs segments of positive length")
 
         # An equal-probability draw sized so its expected length is the target.
         target_n = round(target_length_km / mean_length_km)
@@ -183,10 +190,28 @@ class RoadSampler:
             )
             target_n = len(available_segments)
 
-        inclusion_prob = target_n / len(available_segments)
+        return self._draw(available_segments, target_n)
+
+    @staticmethod
+    def _draw(
+        segments: List[RoadSegment], n: int, stratum: Optional[str] = None
+    ) -> List[RoadSegment]:
+        """Draw n segments with equal probability and record that probability.
+
+        Segments that already carry an inclusion probability are a sample
+        themselves, so the recorded value is the product of the two draws.
+        """
+        if n <= 0:
+            return []
+        this_draw = n / len(segments)
         return [
-            replace(segment, inclusion_prob=inclusion_prob)
-            for segment in random.sample(available_segments, target_n)
+            replace(
+                segment,
+                stratum=stratum,
+                inclusion_prob=this_draw
+                * (1.0 if segment.inclusion_prob is None else segment.inclusion_prob),
+            )
+            for segment in random.sample(segments, n)
         ]
 
     def get_road_type_summary(

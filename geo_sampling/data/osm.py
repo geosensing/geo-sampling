@@ -316,10 +316,11 @@ class OSMProvider:
         # Convert to UTM for accurate distance calculations
         # Use the centroid to determine UTM zone
         centroid = line.centroid
-        utm_zone, hemisphere = utm.from_latlon(centroid.y, centroid.x)[:2]
+        zone_number, zone_letter = utm.from_latlon(centroid.y, centroid.x)[2:4]
 
         # Create transformer to UTM
-        utm_crs = f"+proj=utm +zone={utm_zone} +{'south' if hemisphere < 0 else 'north'} +datum=WGS84"
+        hemisphere = "south" if centroid.y < 0 else "north"
+        utm_crs = f"+proj=utm +zone={zone_number} +{hemisphere} +datum=WGS84"
         transformer = pyproj.Transformer.from_crs("EPSG:4326", utm_crs, always_xy=True)
 
         # Transform to UTM
@@ -330,7 +331,8 @@ class OSMProvider:
         current_distance = 0
         total_length = utm_line.length
 
-        while current_distance < total_length:
+        # Stop short of a sliver left over from floating-point addition.
+        while total_length - current_distance > 1e-6:
             # Get start point
             start_point = utm_line.interpolate(current_distance)
 
@@ -344,10 +346,12 @@ class OSMProvider:
             # Transform back to WGS84
             wgs84_coords = []
             for x, y in segment.coords:
-                lat, lon = utm.to_latlon(x, y, utm_zone, hemisphere)
+                lat, lon = utm.to_latlon(x, y, zone_number, zone_letter)
                 wgs84_coords.append((lon, lat))
 
-            segments.append((LineString(wgs84_coords), end_distance - current_distance))
+            segments.append(
+                (LineString(wgs84_coords), float(end_distance - current_distance))
+            )
             current_distance = end_distance
 
         return segments

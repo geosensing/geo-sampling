@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - `sample_by_length` uses recorded lengths instead of assuming 500 m per segment, and raises if segments have none.
+- Sampling from a sample records the product of the two draws' probabilities.
+- `stratified_sample` warns when a stratum is too small to receive a unit.
+
+### Fixed
+- Splitting roads read the UTM zone from the wrong fields and raised a projection error; it now uses the zone number and letter. Splitting no longer emits a zero-length piece at the end of a road whose length is an exact multiple of the segment length.
 
 ## [0.3.1] - 2025-01-17
 
