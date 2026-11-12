@@ -347,9 +347,7 @@ class OSMProvider:
                 lat, lon = utm.to_latlon(x, y, utm_zone, hemisphere)
                 wgs84_coords.append((lon, lat))
 
-            segments.append(
-                (LineString(wgs84_coords), end_distance - current_distance)
-            )
+            segments.append((LineString(wgs84_coords), end_distance - current_distance))
             current_distance = end_distance
 
         return segments
