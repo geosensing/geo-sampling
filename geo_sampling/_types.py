@@ -6,6 +6,29 @@ from dataclasses import dataclass
 from typing import List, Optional, Union
 
 
+def _optional(data: dict, key: str, convert):
+    """Read a field that older files lack and that CSV stores as an empty string."""
+    value = data.get(key)
+    if value is None or value == "":
+        return None
+    return convert(value)
+
+
+SEGMENT_COLUMNS = [
+    "segment_id",
+    "osm_id",
+    "osm_name",
+    "osm_type",
+    "start_lat",
+    "start_long",
+    "end_lat",
+    "end_long",
+    "length_m",
+    "stratum",
+    "inclusion_prob",
+]
+
+
 @dataclass
 class RoadSegment:
     """A road segment with start/end coordinates and metadata.
@@ -19,6 +42,9 @@ class RoadSegment:
         start_long: Longitude of segment start point
         end_lat: Latitude of segment end point
         end_long: Longitude of segment end point
+        length_m: Length of the segment along the road, in meters
+        stratum: Stratum the segment was sampled from, when the draw was stratified
+        inclusion_prob: Probability that the draw included this segment
     """
 
     segment_id: int
@@ -29,6 +55,9 @@ class RoadSegment:
     start_long: float
     end_lat: float
     end_long: float
+    length_m: Optional[float] = None
+    stratum: Optional[str] = None
+    inclusion_prob: Optional[float] = None
 
     @classmethod
     def from_dict(cls, data: dict) -> RoadSegment:
@@ -42,6 +71,9 @@ class RoadSegment:
             start_long=float(data["start_long"]),
             end_lat=float(data["end_lat"]),
             end_long=float(data["end_long"]),
+            length_m=_optional(data, "length_m", float),
+            stratum=_optional(data, "stratum", str),
+            inclusion_prob=_optional(data, "inclusion_prob", float),
         )
 
     def to_dict(self) -> dict:
@@ -55,6 +87,9 @@ class RoadSegment:
             "start_long": self.start_long,
             "end_lat": self.end_lat,
             "end_long": self.end_long,
+            "length_m": self.length_m,
+            "stratum": self.stratum,
+            "inclusion_prob": self.inclusion_prob,
         }
 
 

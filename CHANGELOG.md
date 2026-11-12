@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Segments record `length_m`, their length along the road. Extracted and sampled CSVs carry it.
+- Sampled segments record `inclusion_prob`, the probability the draw included them, and `stratum` for stratified draws. The inverse of `inclusion_prob` is the design weight.
+
+### Changed
+- `sample_by_length` uses recorded lengths instead of assuming 500 m per segment, and raises if segments have none.
+- Sampling from a sample records the product of the two draws' probabilities.
+- `stratified_sample` warns when a stratum is too small to receive a unit.
+
+### Fixed
+- Splitting roads read the UTM zone from the wrong fields and raised a projection error; it now uses the zone number and letter. Splitting no longer emits a zero-length piece at the end of a road whose length is an exact multiple of the segment length.
+
 ## [0.3.1] - 2025-01-17
 
 ### Changed

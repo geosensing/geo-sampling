@@ -96,6 +96,11 @@ sampler = gs.RoadSampler(sample)
 sampler.save_csv(sample, "singapore_sample.csv")
 ```
 
+Each sampled segment records `inclusion_prob`, the probability that the draw
+included it: `n / N` for a random sample and `n_h / N_h` within stratum `h` for
+a stratified one. Its inverse is the design weight to use in estimation. The
+CSV also carries `stratum` and `length_m`, the segment's length along the road.
+
 ## Documentation
 
 📖 **[Complete Documentation](https://geosensing.github.io/geo-sampling/)** - Comprehensive guides and examples

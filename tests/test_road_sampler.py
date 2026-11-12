@@ -41,6 +41,7 @@ class TestRoadSampler(unittest.TestCase):
                     start_long=103.8 + i * 0.001,
                     end_lat=1.3 + (i + 1) * 0.001,
                     end_long=103.8 + (i + 1) * 0.001,
+                    length_m=500.0,
                 )
             )
 
@@ -198,6 +199,71 @@ class TestRoadSampler(unittest.TestCase):
         zero_sample = self.sampler.sample_by_length(0.0, seed=42)
         self.assertEqual(len(zero_sample), 0)
 
+    def test_sample_by_length_uses_recorded_lengths(self):
+        """Short segments need more draws to reach the same length."""
+        from dataclasses import replace
+
+        short = RoadSampler([replace(s, length_m=250.0) for s in self.test_segments])
+        self.assertEqual(len(short.sample_by_length(2.5, seed=42)), 10)
+
+        unmeasured = RoadSampler(
+            [replace(s, length_m=None) for s in self.test_segments]
+        )
+        with self.assertRaises(ValueError):
+            unmeasured.sample_by_length(2.5, seed=42)
+
+    def test_samples_record_inclusion_probabilities(self):
+        """Each sampled segment carries the probability the draw included it."""
+        simple = self.sampler.random_sample(10, seed=42)
+        self.assertTrue(all(s.inclusion_prob == 10 / 50 for s in simple))
+        self.assertTrue(all(s.stratum is None for s in simple))
+
+        primary_only = self.sampler.random_sample(4, road_types="primary", seed=42)
+        self.assertTrue(all(s.inclusion_prob == 4 / 10 for s in primary_only))
+
+        stratified = self.sampler.stratified_sample(15, seed=42)
+        for segment in stratified:
+            self.assertEqual(segment.stratum, segment.osm_type)
+            self.assertEqual(segment.inclusion_prob, 3 / 10)
+        # Weights are inverse inclusion probabilities, so they sum to the frame.
+        self.assertAlmostEqual(sum(1 / s.inclusion_prob for s in stratified), 50)
+
+        # The frame itself is left untouched.
+        self.assertTrue(all(s.inclusion_prob is None for s in self.test_segments))
+
+    def test_sample_by_length_edge_cases(self):
+        """An empty filter gives no sample; zero-length segments are refused."""
+        from dataclasses import replace
+
+        self.assertEqual(self.sampler.sample_by_length(1.0, road_types=["none"]), [])
+        flat = RoadSampler([replace(s, length_m=0.0) for s in self.test_segments])
+        with self.assertRaises(ValueError):
+            flat.sample_by_length(1.0)
+        everything = self.sampler.sample_by_length(100.0, seed=42)
+        self.assertTrue(all(s.inclusion_prob == 1.0 for s in everything))
+
+    def test_unsampled_strata_are_reported(self):
+        """A stratum too small to get a unit is left out of the design."""
+        from dataclasses import replace
+
+        sizes = {"a": 3, "b": 7, "c": 90}
+        segments = [
+            replace(self.test_segments[0], segment_id=i, osm_type=name)
+            for i, name in enumerate(
+                n for n, size in sizes.items() for _ in range(size)
+            )
+        ]
+        with self.assertWarns(UserWarning):
+            sample = RoadSampler(segments).stratified_sample(10, seed=1)
+        self.assertNotIn("a", {s.stratum for s in sample})
+        self.assertAlmostEqual(sum(1 / s.inclusion_prob for s in sample), 97)
+
+    def test_sampling_a_sample_multiplies_probabilities(self):
+        """Drawing 5 of a 20-segment sample of 50 includes each with 20/50 * 5/20."""
+        first = self.sampler.random_sample(20, seed=1)
+        second = RoadSampler(first).random_sample(5, seed=2)
+        self.assertTrue(all(abs(s.inclusion_prob - 0.1) < 1e-12 for s in second))
+
     def test_road_type_summary(self):
         """Test road type summary generation."""
         summary = self.sampler.get_road_type_summary()
@@ -313,6 +379,9 @@ class TestRoadSampler(unittest.TestCase):
                 "start_long",
                 "end_lat",
                 "end_long",
+                "length_m",
+                "stratum",
+                "inclusion_prob",
             }
             self.assertEqual(set(result.columns), expected_columns)
 

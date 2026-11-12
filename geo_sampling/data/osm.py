@@ -3,7 +3,7 @@
 import os
 import time
 import zipfile
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from urllib.parse import urlencode
 
 import requests
@@ -260,7 +260,7 @@ class OSMProvider:
             # Split line into segments of specified length
             split_segments = self._split_linestring(line, segment_length)
 
-            for segment_line in split_segments:
+            for segment_line, length_m in split_segments:
                 coords = list(segment_line.coords)
                 start_point = coords[0]
                 end_point = coords[-1]
@@ -275,6 +275,7 @@ class OSMProvider:
                         start_long=start_point[0],
                         end_lat=end_point[1],
                         end_long=end_point[0],
+                        length_m=length_m,
                     )
                 )
 
@@ -302,18 +303,24 @@ class OSMProvider:
 
     def _split_linestring(
         self, line: LineString, segment_length: int
-    ) -> List[LineString]:
-        """Split a LineString into segments of specified length."""
+    ) -> List[Tuple[LineString, float]]:
+        """Split a LineString into segments of specified length.
+
+        Returns each piece with its length along the road in meters. The piece
+        itself is the straight line between its end points, which is shorter
+        than the road wherever the road bends.
+        """
         if line.length == 0:
             return []
 
         # Convert to UTM for accurate distance calculations
         # Use the centroid to determine UTM zone
         centroid = line.centroid
-        utm_zone, hemisphere = utm.from_latlon(centroid.y, centroid.x)[:2]
+        zone_number, zone_letter = utm.from_latlon(centroid.y, centroid.x)[2:4]
 
         # Create transformer to UTM
-        utm_crs = f"+proj=utm +zone={utm_zone} +{'south' if hemisphere < 0 else 'north'} +datum=WGS84"
+        hemisphere = "south" if centroid.y < 0 else "north"
+        utm_crs = f"+proj=utm +zone={zone_number} +{hemisphere} +datum=WGS84"
         transformer = pyproj.Transformer.from_crs("EPSG:4326", utm_crs, always_xy=True)
 
         # Transform to UTM
@@ -324,7 +331,8 @@ class OSMProvider:
         current_distance = 0
         total_length = utm_line.length
 
-        while current_distance < total_length:
+        # Stop short of a sliver left over from floating-point addition.
+        while total_length - current_distance > 1e-6:
             # Get start point
             start_point = utm_line.interpolate(current_distance)
 
@@ -338,10 +346,12 @@ class OSMProvider:
             # Transform back to WGS84
             wgs84_coords = []
             for x, y in segment.coords:
-                lat, lon = utm.to_latlon(x, y, utm_zone, hemisphere)
+                lat, lon = utm.to_latlon(x, y, zone_number, zone_letter)
                 wgs84_coords.append((lon, lat))
 
-            segments.append(LineString(wgs84_coords))
+            segments.append(
+                (LineString(wgs84_coords), float(end_distance - current_distance))
+            )
             current_distance = end_distance
 
         return segments

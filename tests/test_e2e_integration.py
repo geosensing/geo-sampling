@@ -134,6 +134,7 @@ class TestE2EIntegration(unittest.TestCase):
                 start_long=103.8198 + i * 0.001,
                 end_lat=1.3521 + (i + 1) * 0.001,
                 end_long=103.8198 + (i + 1) * 0.001,
+                length_m=500.0,
             )
             for i in range(20)
         ]
@@ -176,6 +177,7 @@ class TestE2EIntegration(unittest.TestCase):
                     start_long=103.8 + i * 0.001,
                     end_lat=1.3 + (i + 1) * 0.001,
                     end_long=103.8 + (i + 1) * 0.001,
+                    length_m=500.0,
                 )
             )
 
