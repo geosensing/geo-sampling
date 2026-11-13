@@ -131,3 +131,8 @@ module = [
     "bs4.*",
 ]
 ignore_missing_imports = true
+
+[tool.codespell]
+builtin = "clear,rare,en-GB_to_en-US"
+skip = "*.pdf,*.png,*.jpg,*.jpeg,*.csv,*.tsv,*.json,*.geojson,*.graphml,*.ipynb,*.html,*.svg,*.bib,*.bbl,*.lock,*.parquet"
+ignore-words-list = "tha"
