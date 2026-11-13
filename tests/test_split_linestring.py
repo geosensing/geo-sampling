@@ -11,7 +11,7 @@ UTM_43N = "+proj=utm +zone=43 +north +datum=WGS84"
 
 
 def from_utm(points):
-    """A line in Delhi's UTM zone, given in metres, as longitude and latitude."""
+    """A line in Delhi's UTM zone, given in meters, as longitude and latitude."""
     to_wgs84 = pyproj.Transformer.from_crs(UTM_43N, "EPSG:4326", always_xy=True)
     return LineString([to_wgs84.transform(x, y) for x, y in points])
 
